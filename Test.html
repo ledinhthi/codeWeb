@@ -5,6 +5,10 @@
 <head>
 
     <style>
+        html {
+            scroll-behavior: smooth
+        }
+
         div {
             text-align: center
         }
@@ -28,6 +32,16 @@
             font-size: medium;
             font: bold;
         }
+
+        #section1 {
+            height: 600px;
+            background-color: azure
+        }
+
+        #section2 {
+            height: 600px;
+            background-color: aqua
+        }
     </style>
 
 </head>
@@ -43,7 +57,7 @@
         }
         function initMap() {
             var longlat = { lat: -25.344, lng: 131.036 };
-            var  map = new google.maps.Map(document.getElementById('map'), {
+            var map = new google.maps.Map(document.getElementById('map'), {
                 center: longlat,
                 zoom: 5
             });
@@ -53,10 +67,11 @@
             });
         }
     </script>
-    <script
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDAr4YYvknRTtSrcfj40Fqcj3D3baTifqA&callback=initMap"  type="text/javascript"  async defer></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDAr4YYvknRTtSrcfj40Fqcj3D3baTifqA&callback=initMap"
+        type="text/javascript" async defer></script>
     <div>
-        <h1 id="head" style="color : cyan; text-decoration-style: solid; " onclick="myTest()"> Welcome to Our Story
+        <h1 id="head" style="color : cyan; text-decoration-style: solid;" onclick="myTest()"
+            title="Hope u enjoy it !!!!"> Welcome to Our Story
         </h1>
         <p id="content">
             My name is Thi <br>
@@ -70,12 +85,33 @@
             <button type="submit" style="color:black; visibility: visible"> Open up </button>
         </form>
     </p>
-    <button onclick="">
-        Like
-    </button>
-    <button style="color: red">
-        Share
-    </button>
+    <p style="align-items: center">
+        <iframe width="560" height="315" src="https://www.youtube.com/embed/KQEX5FKpevE" frameborder="0"
+            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    </p>
+    <div>
+        <form title="facebook.com.vn" method="GET"
+            action="https://www.youtube.com/channel/UCjTtTUuoorU195WeFQhoOhQ/channels">
+            <button type="submit" style="color:blue; visibility: visible"> Like </button>
+        </form>
+        <form title="facebook.com.vn" method="GET"
+        action="https://www.youtube.com/channel/UCjTtTUuoorU195WeFQhoOhQ/discussion">
+        <button type="submit" style="color:red; visibility: visible"> Share </button>
+    </form>
+    </div>
+    
+    <div id= "section1">
+        <h2>
+            Trip Story
+        </h2>
+        <a href="#section2">   Move to Life story </a>
+    </div>
+    <div  id= "section2" >
+        <h2>
+            Life story
+        </h2>
+        <a href="#section1">     Move to Trip Story </a>
+    </div>
 </body>
 
 </html>
