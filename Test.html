@@ -1,0 +1,81 @@
+<html>
+<meta charset="UTF-16">
+<title style="color: burlywood"> T &#9829 H Forever </title>
+
+<head>
+
+    <style>
+        div {
+            text-align: center
+        }
+
+        button {
+            color: burlywood;
+            background-color: aqua;
+            border-color: black;
+        }
+
+        body {
+            background-color: white
+        }
+
+        #head {
+            color: blue
+        }
+
+        #content {
+            color: brown;
+            font-size: medium;
+            font: bold;
+        }
+    </style>
+
+</head>
+<br>
+
+<body>
+    <h1>
+        <div id="map" style="width:100%;height:400px;"></div>
+    </h1>
+    <script>
+        function myTest() {
+            document.getElementById("head").textContent = " THANK U SO MUCH !!!!!!"
+        }
+        function initMap() {
+            var longlat = { lat: -25.344, lng: 131.036 };
+            var  map = new google.maps.Map(document.getElementById('map'), {
+                center: longlat,
+                zoom: 5
+            });
+            var marker = new google.maps.Marker({
+                position: longlat,
+                map: map
+            });
+        }
+    </script>
+    <script
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDAr4YYvknRTtSrcfj40Fqcj3D3baTifqA&callback=initMap"  type="text/javascript"  async defer></script>
+    <div>
+        <h1 id="head" style="color : cyan; text-decoration-style: solid; " onclick="myTest()"> Welcome to Our Story
+        </h1>
+        <p id="content">
+            My name is Thi <br>
+            My future Wife is Ha <br>
+            We have been long time together <br>
+        </p>
+    </div>
+    <p>
+        <form title="Nhac.vn" method="GET"
+            action="https://nhac.vn/bxh-bai-hat-au-my-tuan-14-nam-2019-csAlLk?st=so4oGRb">
+            <button type="submit" style="color:black; visibility: visible"> Open up </button>
+        </form>
+    </p>
+    <button onclick="">
+        Like
+    </button>
+    <button style="color: red">
+        Share
+    </button>
+</body>
+
+</html>
