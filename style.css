@@ -1,0 +1,59 @@
+.header{
+    width: 980px;
+    height: 58;
+    /* border: 1px solid red;  */
+}
+.menu{
+    width: 100%;
+    height: 45px;
+    /* border: 1px solid black; */
+    background-color: red;
+}
+.content{
+    width: 980px;
+    height: 1000px;
+    border: 1px solid blue;
+}
+.center{
+    margin: 0px auto 0px auto; 
+}
+.logo{
+    width: 140px;
+    height: 100%;
+    /* border: 1px solid yellow; */
+    float: left;
+}
+.date{
+    width: 211px;
+    height: 100%;
+    /* border: 1px solid blue; */
+    float: right;
+    text-align: center; /* noi dung thi dung aligh con khung thi dung margin */
+}
+.data{
+    width: 55%;
+    height: 100%;
+    border: 1px solid red;
+    float: left;
+}
+.menu-child{
+    width: 20%;
+    height: 100%;
+    border: 1px solid pink;
+    float: left
+}
+.ads{
+    width: 24%;
+    height: 100%;
+    border: 1px solid gray;
+    float: right
+}
+.data table{ /* goi thang cha */
+    width: 100%;
+}
+.row1{
+    background-color:#F0F0F0;
+}
+.list-button{
+    text-align: center; 
+}
