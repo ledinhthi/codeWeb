@@ -1,0 +1,33 @@
+<html>
+<meta>
+<title>
+    Lession to learn Html
+</title>
+
+<head>
+    <script type="text/javascript" src="html2canvas-master/html2canvas-master/dist/html2canvas.js"></script>
+</head>
+
+<body style="text-align: center">
+    <div id="test"> Ck iuuuuuuuuuuuuuuuuuuuuuuuu </div>
+    <script  type="text/javascript">
+        var myTime = setInterval(setValue, 1000);
+        function setValue() {
+            document.getElementById("test").style.color = "red";
+            document.getElementById("test").innerText = document.getElementById("test").innerText + "-";
+            if (document.getElementById("test").innerText.length > 40) {
+                document.getElementById("test").innerText = document.getElementById("test").innerText + ">";
+                document.getElementById("test").innerText = document.getElementById("test").innerText + "Vk iuuuuuuuuuuuuuu + ahiii";
+                clearInterval(myTime);
+            }
+        }
+        function screenShot() {
+            html2canvas(document.body).then(function (canvas) {
+                document.body.appendChild(canvas);
+            });
+        }
+    </script>
+   <input type='button' id='but_screenshot' value='Take screenshot' onclick="screenShot()"><br/>
+</body>
+
+</html>
