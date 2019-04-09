@@ -1,0 +1,1381 @@
+/**********************************************************************
+ *
+ * \author  vanhuy.tran@lge.com
+ *
+ * \date    12/12/2017
+ *
+ * \class %{Cpp:License:ClassName}
+ *
+ * \brief
+ *
+***********************************************************************/
+#include <QDebug>
+#include <QObject>
+#include <QQmlContext>
+#include <QJsonArray>
+#include <QJsonObject>
+
+#include "SelectSourceInterface.h"
+#include "SelectSourceDefine.h"
+#include "util/JsonObject.h"
+#include "util/SourceElement.h"
+#include "SelectSourceAppMain.h"
+#ifdef APP_ON_TARGET
+#include "util/SelectSourceLog.h"
+#include "ccf/CcfProvider.h"
+#include "resourceservice/ResourceMsgDef.h"
+#include "service/HmiBluetoothA2dpService.h"
+#include "service/HmiBluetoothAvrcpService.h"
+#include "service/HmiBluetoothPairedService.h"
+#include "service/HmiMediaService.h"
+#include "service/PopupService.h"
+#ifndef EXCLUDE_ONLINEMEDIA
+#include "service/HmiOnlineMediaService.h"
+#endif
+#include "service/SelectSourceService.h"
+#include "service/HmiMediaSourceControlService.h"
+#else
+#include "resourceservice/ResourceMsgDef.h" // For S_RES_AUDIO_SOURCE_ID_LIST_T
+#endif
+
+SelectSourceInterface::SelectSourceInterface(QObject *parent)
+    : ISelectSourceInterface(parent)
+    , m_rootObject(nullptr)
+    , m_rootContext(nullptr)
+    , m_currentSource("")
+    , m_connectingSource("")
+    , m_strCurrAppBinaryName("")
+    , m_lastReceivedProvider("")
+    , m_isAnimation(false)
+    , m_lastSourceName("")
+    , m_isAppleExist(false)
+{
+#ifdef APP_ON_TARGET
+    m_selectSourceService = new SelectSourceService(this);
+    m_bluetoothA2dpService = new HmiBluetoothA2dpService(this);
+    m_bluetoothAvrcpService = new HmiBluetoothAvrcpService(this);
+    m_bluetoothPairedService = new HmiBluetoothPairedService(this);
+    m_hmiMediaService = new HmiMediaService(this);
+    m_popupService = new PopupService(this);
+#ifndef EXCLUDE_ONLINEMEDIA
+    m_hmiOnlineMediaService = new HmiOnlineMediaService(this);
+#endif
+    m_hmiMediaSourceControlService = new HmiMediaSourceControlService(this);
+#endif
+}
+
+SelectSourceInterface::~SelectSourceInterface()
+{
+#ifdef APP_ON_TARGET
+    DELETE_PTR(m_selectSourceService);
+    DELETE_PTR(m_bluetoothA2dpService);
+    DELETE_PTR(m_bluetoothAvrcpService);
+    DELETE_PTR(m_bluetoothPairedService);
+    DELETE_PTR(m_hmiMediaService);
+    DELETE_PTR(m_popupService);
+#ifndef EXCLUDE_ONLINEMEDIA
+    DELETE_PTR(m_hmiOnlineMediaService);
+#endif
+    DELETE_PTR(m_popupService);
+    DELETE_PTR(m_hmiMediaSourceControlService);
+#endif
+}
+
+void SelectSourceInterface::setRootObject(QObject *rootObject)
+{
+    m_rootObject = rootObject;
+}
+
+void SelectSourceInterface::setRootContext(QQmlContext *rootContext)
+{
+    m_rootContext = rootContext;
+}
+
+/************* virtual functions **************/
+#ifdef APP_ON_TARGET
+void SelectSourceInterface::initialize(OnBaseListener* engine)
+{
+    this->initializeSelectSourceService(engine);
+    this->initializeBluetoothA2dpService(engine);
+    this->initializeBluetoothAvrcpService(engine);
+    this->initializeBluetoothPairedService();
+    this->initializeHmiMediaService(engine);
+    this->initializePopupService(engine);
+    this->initializeHmiOnlineMediaService(engine);
+    this->initializeHmiMediaSourceControlService(engine);
+}
+
+void SelectSourceInterface::registerListeners(OnBaseListener* engine)
+{
+    this->registerListenersSelectSourceService(engine);
+    this->registerListenersBluetoothA2dpService(engine);
+    this->registerListenersBluetoothAvrcpService(engine);
+    this->registerListenersBluetoothPairedService(engine);
+    this->registerListenersHmiMediaService(engine);
+    this->registerListenersPopupService(engine);
+    this->registerListenersHmiOnlineMediaService(engine);
+    this->registerListenersHmiMediaSourceControlService(engine);
+}
+
+void SelectSourceInterface::terminate()
+{
+
+}
+
+void SelectSourceInterface::terminateSelectSourceService()
+{
+    m_selectSourceService->terminate();
+}
+
+void SelectSourceInterface::terminateBluetoothA2dpService()
+{
+    m_bluetoothA2dpService->terminate();
+}
+
+void SelectSourceInterface::terminateBluetoothAvrcpService()
+{
+    m_bluetoothAvrcpService->terminate();
+}
+
+void SelectSourceInterface::terminateBluetoothPairedService()
+{
+    m_bluetoothPairedService->terminate();
+}
+
+void SelectSourceInterface::terminateHmiMediaService()
+{
+    m_hmiMediaService->terminate();
+}
+
+void SelectSourceInterface::terminatePopupService()
+{
+    m_popupService->terminate();
+}
+
+void SelectSourceInterface::terminateHmiOnlineMediaService()
+{
+#ifndef EXCLUDE_ONLINEMEDIA
+    m_hmiOnlineMediaService->terminate();
+#endif
+}
+
+void SelectSourceInterface::terminateHmiMediaSourceControlService()
+{
+    m_hmiMediaSourceControlService->terminate();
+}
+
+void SelectSourceInterface::unRegisterListeners(OnBaseListener *_engine)
+{
+
+}
+
+void SelectSourceInterface::unRegisterListenersSelectSourceService(OnBaseListener *_engine)
+{
+    _engine->unRegisterListener((IOnResourceListener*)m_selectSourceService);
+}
+
+void SelectSourceInterface::unRegisterListenersBluetoothA2dpService(OnBaseListener *_engine)
+{
+    _engine->unRegisterListener((IOnBtA2dpListener*)m_bluetoothA2dpService);
+}
+
+void SelectSourceInterface::unRegisterListenersBluetoothAvrcpService(OnBaseListener *_engine)
+{
+    _engine->unRegisterListener((IOnBtAvrcpListener*)m_bluetoothAvrcpService);
+    _engine->unRegisterListener((IOnBtGapListener*)m_bluetoothAvrcpService);
+}
+
+void SelectSourceInterface::unRegisterListenersBluetoothPairedService(OnBaseListener *_engine)
+{
+    _engine->unRegisterListener((IOnBtGapListener*)m_bluetoothPairedService);
+
+}
+
+void SelectSourceInterface::unRegisterListenersHmiMediaService(OnBaseListener *_engine)
+{
+    _engine->unRegisterListener((MediaLib::IOnMediaListener*)m_hmiMediaService);
+}
+
+void SelectSourceInterface::unRegisterListenersPopupService(OnBaseListener *_engine)
+{
+    _engine->unRegisterListener((IOnPopupListener*)m_popupService);
+}
+
+void SelectSourceInterface::unRegisterListenersHmiOnlineMediaService(OnBaseListener *_engine)
+{
+#ifndef EXCLUDE_ONLINEMEDIA
+    _engine->unRegisterListener((OnlineMediaLib::IOnOnlineMediaListener*)m_hmiOnlineMediaService);
+#endif
+}
+
+void SelectSourceInterface::unRegisterListenersHmiMediaSourceControlService(OnBaseListener *_engine)
+{
+    _engine->unRegisterListener((IOnMediaSourceControlListener*)m_hmiMediaSourceControlService);
+}
+
+void SelectSourceInterface::initializeSelectSourceService(OnBaseListener *_engine)
+{
+    m_selectSourceService->initialize(_engine);
+}
+
+void SelectSourceInterface::initializeBluetoothA2dpService(OnBaseListener *_engine)
+{
+    m_bluetoothA2dpService->initialize(_engine);
+}
+
+void SelectSourceInterface::initializeBluetoothAvrcpService(OnBaseListener *_engine)
+{
+    m_bluetoothAvrcpService->initialize(_engine);
+}
+
+void SelectSourceInterface::initializeBluetoothPairedService()
+{
+    m_bluetoothPairedService->initialize();
+}
+
+void SelectSourceInterface::initializeHmiMediaService(OnBaseListener *_engine)
+{
+    m_hmiMediaService->initialize(_engine);
+}
+
+void SelectSourceInterface::initializePopupService(OnBaseListener *_engine)
+{
+    m_popupService->initialize(_engine);
+}
+
+void SelectSourceInterface::initializeHmiOnlineMediaService(OnBaseListener *_engine)
+{
+#ifndef EXCLUDE_ONLINEMEDIA
+    m_hmiOnlineMediaService->initialize(_engine);
+#endif
+}
+
+void SelectSourceInterface::initializeHmiMediaSourceControlService(OnBaseListener *_engine)
+{
+    m_hmiMediaSourceControlService->initialize(_engine);
+}
+
+void SelectSourceInterface::registerListenersSelectSourceService(OnBaseListener *_engine)
+{
+    _engine->registerListener((BrResourceListener*)m_selectSourceService);
+    _engine->registerListener((BrAppListener*)m_selectSourceService);
+    _engine->registerListener((IOnResourceListener*)m_selectSourceService);
+}
+
+void SelectSourceInterface::registerListenersBluetoothA2dpService(OnBaseListener *_engine)
+{
+    _engine->registerListener((BrBtA2dpListener*)m_bluetoothA2dpService);
+    _engine->registerListener((IOnBtA2dpListener*)m_bluetoothA2dpService);
+}
+
+void SelectSourceInterface::registerListenersBluetoothAvrcpService(OnBaseListener *_engine)
+{
+    _engine->registerListener((BrBtAvrcpListener*)m_bluetoothAvrcpService);
+    _engine->registerListener((IOnBtAvrcpListener*)m_bluetoothAvrcpService);
+    _engine->registerListener((IOnBtGapListener*)m_bluetoothAvrcpService);
+}
+
+void SelectSourceInterface::registerListenersBluetoothPairedService(OnBaseListener *_engine)
+{
+    _engine->registerListener((IOnBtGapListener*)m_bluetoothPairedService);
+}
+
+void SelectSourceInterface::registerListenersHmiMediaService(OnBaseListener *_engine)
+{
+    _engine->registerListener((MediaLib::IOnMediaListener*)m_hmiMediaService);
+}
+
+void SelectSourceInterface::registerListenersPopupService(OnBaseListener *_engine)
+{
+    _engine->registerListener((IOnPopupListener*)m_popupService);
+}
+
+void SelectSourceInterface::registerListenersHmiOnlineMediaService(OnBaseListener *_engine)
+{
+#ifndef EXCLUDE_ONLINEMEDIA
+    _engine->registerListener((OnlineMediaLib::IOnOnlineMediaListener*)m_hmiOnlineMediaService);
+#endif
+}
+
+void SelectSourceInterface::registerListenersHmiMediaSourceControlService(OnBaseListener *_engine)
+{
+    _engine->registerListener((BrMediaSourceControlListener*)m_hmiMediaSourceControlService);
+    _engine->registerListener((IOnMediaSourceControlListener*)m_hmiMediaSourceControlService);
+}
+
+#endif
+
+/*******************************************
+ **            HMI -> service
+ *******************************************/
+void SelectSourceInterface::requestGetAvailableAudioSources(QString source, int deviceStatus)
+{
+#ifdef APP_ON_TARGET
+    if(source == "")
+        m_selectSourceService->requestResourceSvc_GetAvailableAudioSources(0);
+    else {
+        SourceElementPtr sourceElement;
+        bool isKnewSource = false;
+        for(int i = 0; i < m_fullList.count(); i++) {
+            if(m_fullList[i]->deviceId().contains(source)) {
+                sourceElement = m_fullList[i];
+                isKnewSource = true;
+                break;
+            }
+        }
+        if(isKnewSource == false) {
+            m_selectSourceService->requestResourceSvc_GetAvailableAudioSources(0);
+        }
+        else {
+            if(deviceStatus == E_BT_GAP_STATE_CONNECTED) {
+                this->requestUpdateReadyLoading(source, true, false);
+                if(source == m_connectingSource) {
+                    m_connectingSource = "";
+                    string addr = "";
+                    int sourceId = sourceElement->sourceId();
+                    E_BT_SERVICE_ERROR_CODE result;
+                    m_bluetoothA2dpService->getSourceIdAddressSync(E_RES_BT_A2DP0, addr, result);
+                    MTLOG_I(TAG, "Source[%s] A2DP0[%s]", source.toStdString().c_str(), addr.c_str());
+                    if (addr.compare(source.toStdString()) == 0) {
+                        sourceId = E_RES_BT_A2DP0;
+                        MTLOG_I(TAG, "Source ID: A2DP0");
+                    } else {
+                        m_bluetoothA2dpService->getSourceIdAddressSync(E_RES_BT_A2DP1, addr, result);
+                        MTLOG_I(TAG, "Source[%s] A2DP1[%s]", source.toStdString().c_str(), addr.c_str());
+                        if (addr.compare(source.toStdString()) == 0) {
+                            sourceId = E_RES_BT_A2DP1;
+                            MTLOG_I(TAG, "Source ID: A2DP1");
+                        }
+                    }
+                    emit requestToGoToApplication(sourceId, sourceElement->name(),
+                                                  sourceElement->deviceId(), sourceElement->basePath(),
+                                                  sourceElement->deviceType(), sourceElement->providerId(),
+                                                  sourceElement->urlImage(), sourceElement->supportAnonymous(),
+                                                  sourceElement->supportFreemium(), sourceElement->supportPremium(),
+                                                  sourceElement->isSelected(), sourceElement->isAuthorized(), sourceElement->hasMediaFile(),
+                                                  sourceElement->macAddress(), m_lastSourceQML, false);
+                }
+            } else if(deviceStatus == E_BT_GAP_STATE_DISCONNECTED){
+                this->requestUpdateReadyLoading(source, false, false);
+                if(source == m_currentSource){
+                    m_currentSource = "";
+                    this->clearWhenDisconnectedDevice(m_currentSource , -1);
+                }
+                if(source == m_connectingSource) {
+                    m_connectingSource = "";
+                    this->requestShowPopupReconnectFail();
+                }
+            }
+        }
+    }
+#else
+    m_fullList.clear();
+    m_fullList.append(SourceElementPtr(new SourceElement(E_RES_DEFAULT_AUDIO_SOURCE,
+                                                         "ADD", "selectSourceItemAdd")));
+    m_fullList.append(SourceElementPtr(new SourceElement(E_RES_BROADCAST_AM,
+                                                         "AM RADIO", "selectSourceItemAM")));
+    m_fullList.append(SourceElementPtr(new SourceElement(E_RES_BROADCAST_SXM_SAT,
+                                                         "SXM SAT RADIO", "selectSourceItemSxm")));
+    m_fullList.append(SourceElementPtr(new SourceElement(E_RES_BROADCAST_DAB, "DAB RADIO", "selectSourceItemDab")));
+
+    m_fullList.append(SourceElementPtr(new SourceElement(E_RES_MEDIA_PLAYBACK_USB0,
+                                                         "USB", "selectSourceItemUsb")));
+    m_fullList.append(SourceElementPtr(new SourceElement(E_RES_MEDIA_PLAYBACK_USB0,
+                                                         "S7 EDGE", "selectSourceItemPhone")));
+    m_fullList.append(SourceElementPtr(new SourceElement(E_RES_MEDIA_PLAYBACK_USB0,
+                                                         "AUX", "selectSourceItemAux")));
+    m_fullList.append(SourceElementPtr(new SourceElement(E_RES_BT_A2DP0,
+                                                         "Galaxy A5", "selectSourceItemBluetooth")));
+    m_fullList.append(SourceElementPtr(new SourceElement(E_RES_BT_A2DP1,
+                                                         "Galaxy S8", "selectSourceItemBluetooth")));
+    m_fullList.append(SourceElementPtr(new SourceElement(E_RES_BT_A2DP1,
+                                                         "iPhone XS", "selectSourceItemBluetooth")));
+    m_fullList[m_fullList.count() - 1]->setIsReady(false);
+    m_fullList[m_fullList.count() - 1]->setDeviceId("2B:3E:4F:4D");
+    m_fullList.append(SourceElementPtr(new SourceElement(E_RES_CARPLAY_MEDIA,
+                                                         "Car Play", "selectSourceItemCarPlay")));
+    m_fullList.append(SourceElementPtr(new SourceElement(E_RES_ANDROID_AUTO_MEDIA,
+                                                         "Android Auto", "selectSourceItemAndroidAuto")));
+    m_fullList.append(SourceElementPtr(new SourceElement(E_RES_CARLIFE_MEDIA,
+                                                         "Baidu Carlife", "selectSourceItemBaiduCarlife")));
+    m_offlineList = m_fullList;
+    this->getOnlineMediaSourceList();
+#endif
+}
+
+bool SelectSourceInterface::isSourceFromMediaApp(SourceElementPtr source)
+{
+    bool result = false;
+    switch(source->sourceId()) {
+    case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB0:
+    case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB1:
+    case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB2:
+    case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB3:
+    case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB4:
+    case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB5:
+    case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB6:
+    case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB7:
+    case E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP0:
+    case E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP1:
+    case E_RES_AUDIO_SOURCE_ID::E_RES_CARPLAY_MEDIA:
+    case E_RES_AUDIO_SOURCE_ID::E_RES_ANDROID_AUTO_MEDIA:
+    case E_RES_AUDIO_SOURCE_ID::E_RES_CARLIFE_MEDIA:
+        result = true;
+        break;
+    default:
+        break;
+    }
+    return result;
+}
+
+void SelectSourceInterface::onSigSetCurrentProviderId(QString providerId)
+{
+    this->MediaSvc_SetCurrentProviderId(providerId.toStdString());
+}
+
+void SelectSourceInterface::getOnlineMediaSourceList()
+{
+#ifdef APP_ON_TARGET
+#ifndef EXCLUDE_ONLINEMEDIA
+    MTLOG_I(TAG, "Request get online provider\n");
+    m_hmiOnlineMediaService->MediaSvc_GetProviders();
+#endif
+#else
+    QString rcvDataStr("{\"data\":[{\"providerId\":\"spotify\",\"providerName\":\"Spotify\",\"supportAnonymous\":false,\"supportFreemium\":false,\"supportPremium\":true,\"isSelected\":true,\"isAuthorized\":true,\"providerArtwork\":\"https://s3-us-west-1.amazonaws.com/static.justdrive.cloudcar.com/image/provider/provider_spotify.png\",\"supportedContentTypes\":[\"track\",\"album\",\"artist\",\"playlist\",\"radio\",\"genre\"]},{\"providerId\":\"deezer\",\"providerName\":\"Deezer\",\"supportAnonymous\":false,\"supportFreemium\":true,\"supportPremium\":true,\"isSelected\":true,\"isAuthorized\":true,\"providerArtwork\":\"https://s3-us-west-1.amazonaws.com/static.justdrive.cloudcar.com/image/provider/provider_deezer.png\",\"supportedContentTypes\":[\"track\",\"album\",\"artist\",\"playlist\",\"radio\",\"genre\",\"ccflow\"],\"isPremium\":true},{\"providerId\":\"npr\",\"providerName\":\"NPR\",\"supportAnonymous\":false,\"supportFreemium\":true,\"supportPremium\":false,\"isSelected\":true,\"isAuthorized\":false,\"providerArtwork\":\"https://s3-us-west-1.amazonaws.com/static.justdrive.cloudcar.com/image/provider/provider_npr.png\",\"supportedContentTypes\":[\"podcast\",\"episode\"]},{\"providerId\":\"tunein\",\"providerName\":\"TuneIn\",\"supportAnonymous\":true,\"supportFreemium\":false,\"supportPremium\":false,\"isSelected\":true,\"isAuthorized\":false,\"providerArtwork\":\"https://s3-us-west-1.amazonaws.com/static.justdrive.cloudcar.com/image/provider/provider_tunein.png\",\"supportedContentTypes\":[\"podcast\",\"station\",\"episode\"]},{\"providerId\":\"amazon\",\"providerName\":\"amazon\",\"supportAnonymous\":false,\"supportFreemium\":false,\"supportPremium\":true,\"isSelected\":true,\"isAuthorized\":false,\"providerArtwork\":\"https://s3-us-west-1.amazonaws.com/static.justdrive.cloudcar.com/image/provider/provider_amazon_music.svg\",\"supportedContentTypes\":[\"track\",\"album\",\"artist\",\"playlist\",\"radio\",\"genreee\"]}]}");
+    this->MediaSvc_onGetProviders(rcvDataStr);
+#endif
+}
+
+/*******************************************
+ ** Service -> HMI
+ *******************************************/
+#ifdef APP_ON_TARGET
+void SelectSourceInterface::getAvailableRadioSources(const S_RES_AUDIO_SOURCE_ID_LIST_T& availableSourceIds)
+{
+    SourceElementPtr sourceBroadcastAM = nullptr;
+    SourceElementPtr sourceBroadcastFM = nullptr;
+    SourceElementPtr sourceBroadcastDAB = nullptr;
+    SourceElementPtr sourceBroadcastSXMSAT = nullptr;
+    for (int dwCount = 0; dwCount < availableSourceIds.count; dwCount++) {
+        switch(availableSourceIds.data[dwCount]) {
+        case E_RES_AUDIO_SOURCE_ID::E_RES_INVALID_AUDIO_SOURCE:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_DEFAULT_AUDIO_SOURCE:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB0:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB1:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB2:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB3:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB4:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB5:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB6:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB7:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_STREAMING_SPOTIFY:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_STREAMING_AUDIBLE:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_STREAMING_TUNEIN:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_STREAMING_DEEZER:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING0:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING1:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING2:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING3:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING4:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING5:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING6:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING7:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING8:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING9:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING10:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING11:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING12:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING13:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING14:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING15:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING16:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING17:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING18:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING19:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP0:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP1:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_AM:
+            sourceBroadcastAM = SourceElementPtr(new SourceElement(availableSourceIds.data[dwCount]));
+            sourceBroadcastAM->setName("AM RADIO");
+            sourceBroadcastAM->setDeviceId("AM");
+            sourceBroadcastAM->setObjectImage("selectSourceItemAM");
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_FM:
+            sourceBroadcastFM = SourceElementPtr(new SourceElement(availableSourceIds.data[dwCount]));
+            sourceBroadcastFM->setName("FM RADIO");
+            sourceBroadcastFM->setDeviceId("FM");
+            sourceBroadcastFM->setObjectImage("selectSourceItemFM");
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_DAB:
+            sourceBroadcastDAB = SourceElementPtr(new SourceElement(availableSourceIds.data[dwCount]));
+            sourceBroadcastDAB->setName("DAB RADIO");
+            sourceBroadcastDAB->setDeviceId("DAB");
+            sourceBroadcastDAB->setObjectImage("selectSourceItemDab");
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_DRM:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_SXM_SAT:
+            sourceBroadcastSXMSAT = SourceElementPtr(new SourceElement(availableSourceIds.data[dwCount]));
+            sourceBroadcastSXMSAT->setName("SXM SAT RADIO");
+            sourceBroadcastSXMSAT->setDeviceId("SXM");
+            sourceBroadcastSXMSAT->setObjectImage("selectSourceItemSxm");
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_SXM_IP:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_CONNECTEDRADIO_IP:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_ISDBT:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_CARPLAY_MEDIA:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ANDROID_AUTO_MEDIA:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_CARLIFE_MEDIA:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_TTS_EMAIL:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_TTS_SMS:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_FM_NEWS:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_FM_TA:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_FM_ALARM:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_DAB_ANNOUNCEMENT:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MAX_AUDIO_SOURCE_ID:
+            MTLOG_W(TAG, "WARNING: Did not process source E_RES_MAX_AUDIO_SOURCE_ID\n");
+            break;
+        default:
+            MTLOG_W(TAG, "WARNING: Did not process source default: %d\n", availableSourceIds.data[dwCount]);
+            break;
+        }
+    }
+    if(sourceBroadcastAM != nullptr){
+        bool check = false;
+        for(int i = 0 ; i < m_fullList.size() ; i++){
+            if(m_fullList.at(i)->name() == sourceBroadcastAM->name()){
+                check = true;
+                break;
+            }
+        }
+        if(check == false){
+            m_fullList.append(sourceBroadcastAM);
+        }
+    }
+    if(sourceBroadcastFM != nullptr){
+        bool check = false;
+        for(int i = 0 ; i < m_fullList.size() ; i++){
+            if(m_fullList.at(i)->name() == sourceBroadcastFM->name()){
+                check = true;
+                break;
+            }
+        }
+        if(check == false){
+            m_fullList.append(sourceBroadcastFM);
+        }
+    }
+    if(sourceBroadcastDAB != nullptr){
+        bool check = false;
+        for(int i = 0 ; i < m_fullList.size() ; i++){
+            if(m_fullList.at(i)->name() == sourceBroadcastDAB->name()){
+                check = true;
+                break;
+            }
+        }
+        if(check == false){
+            m_fullList.append(sourceBroadcastDAB);
+        }
+    }
+    if(sourceBroadcastSXMSAT != nullptr){
+        bool check = false;
+        for(int i = 0 ; i < m_fullList.size() ; i++){
+            if(m_fullList.at(i)->name() == sourceBroadcastSXMSAT->name()){
+                check = true;
+                break;
+            }
+        }
+        if(check == false){
+            m_fullList.append(sourceBroadcastSXMSAT);
+        }
+    }
+}
+
+void SelectSourceInterface::getAvailableAdditionalDevices(const S_RES_AUDIO_SOURCE_ID_LIST_T &availableSourceIds)
+{
+    SourceElementPtr sourceCarPlayMedia = nullptr;
+    SourceElementPtr sourceAndroidAutoMedia = nullptr;
+    SourceElementPtr sourceCarLifeMedia = nullptr;
+    for (int dwCount = 0; dwCount < availableSourceIds.count; dwCount++) {
+        MTLOG_I(TAG, "availableSourceIds: %d dwCount %d \n", availableSourceIds.data[dwCount], dwCount);
+        switch(availableSourceIds.data[dwCount]) {
+        case E_RES_AUDIO_SOURCE_ID::E_RES_INVALID_AUDIO_SOURCE:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_DEFAULT_AUDIO_SOURCE:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB0:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB1:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB2:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB3:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB4:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB5:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB6:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_USB7:
+            this->getConnectedMediaDeviceListSync();
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_STREAMING_SPOTIFY:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_STREAMING_AUDIBLE:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_STREAMING_TUNEIN:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MEDIA_PLAYBACK_STREAMING_DEEZER:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING0:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING1:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING2:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING3:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING4:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING5:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING6:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING7:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING8:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING9:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING10:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING11:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING12:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING13:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING14:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING15:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING16:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING17:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING18:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ONLINEMEDIA_STREAMING19:
+            this->getOnlineMediaList();
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP0:
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP1:
+            this->getConnectedBluetoothDevices();
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_AM:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_FM:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_DAB:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_DRM:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_SXM_SAT:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_SXM_IP:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_CONNECTEDRADIO_IP:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_ISDBT:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_CARPLAY_MEDIA:{
+            sourceCarPlayMedia = SourceElementPtr(new SourceElement(availableSourceIds.data[dwCount]));
+            sourceCarPlayMedia->setName("Car Play");
+            sourceCarPlayMedia->setDeviceId("CAR_PLAY");
+            sourceCarPlayMedia->setObjectImage("selectSourceItemCarPlay");
+            bool check = false;
+            for(int i = 0 ; i < m_fullList.size() ; i++){
+                if(m_fullList.at(i)->name() == sourceCarPlayMedia->name()){
+                    check = true;
+                    break;
+                }
+            }
+            if(check == false){
+                m_fullList.append(sourceCarPlayMedia);
+            }
+            break;
+        }
+        case E_RES_AUDIO_SOURCE_ID::E_RES_ANDROID_AUTO_MEDIA:{
+            sourceAndroidAutoMedia = SourceElementPtr(new SourceElement(availableSourceIds.data[dwCount]));
+            sourceAndroidAutoMedia->setName("Android Auto");
+            sourceAndroidAutoMedia->setDeviceId("ANDROID_AUTO");
+            sourceAndroidAutoMedia->setObjectImage("selectSourceItemAndroidAuto");
+            bool check = false;
+            for(int i = 0 ; i < m_fullList.size() ; i++){
+                if(m_fullList.at(i)->name() == sourceAndroidAutoMedia->name()){
+                    check = true;
+                    break;
+                }
+            }
+            if(check == false){
+                m_fullList.append(sourceAndroidAutoMedia);
+            }
+            break;
+        }
+        case E_RES_AUDIO_SOURCE_ID::E_RES_CARLIFE_MEDIA:{
+            sourceCarLifeMedia = SourceElementPtr(new SourceElement(availableSourceIds.data[dwCount]));
+            sourceCarLifeMedia->setName("Baidu Carlife");
+            sourceCarLifeMedia->setDeviceId("BAIDU_CARLIFE");
+            sourceCarLifeMedia->setObjectImage("selectSourceItemBaiduCarlife");
+            bool check = false;
+            for(int i = 0 ; i < m_fullList.size() ; i++){
+                if(m_fullList.at(i)->name() == sourceCarLifeMedia->name()){
+                    check = true;
+                    break;
+                }
+            }
+            if(check == false){
+                m_fullList.append(sourceCarLifeMedia);
+            }
+            break;
+        }
+        case E_RES_AUDIO_SOURCE_ID::E_RES_TTS_EMAIL:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_TTS_SMS:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_FM_NEWS:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_FM_TA:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_FM_ALARM:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_BROADCAST_DAB_ANNOUNCEMENT:
+            break;
+        case E_RES_AUDIO_SOURCE_ID::E_RES_MAX_AUDIO_SOURCE_ID:
+            MTLOG_W(TAG, "WARNING: Did not process source E_RES_MAX_AUDIO_SOURCE_ID\n");
+            break;
+        default:
+            MTLOG_W(TAG, "WARNING: Did not process source default: %d\n", availableSourceIds.data[dwCount]);
+            break;
+        }
+    }
+    MTLOG_I(TAG, "Available audio source: %d\n", availableSourceIds.count);
+}
+
+SourceElementPtr SelectSourceInterface::convertSourceUSBFromMediaDevice(std::list<MediaLib::mediaDevice>::iterator& it)
+{
+    SourceElementPtr source = SourceElementPtr(new SourceElement(0));
+    source->setSourceId(E_RES_AUDIO_SOURCE_ID(it->audioSourceID));
+    source->setName(QString(it->name.c_str()));
+    source->setDeviceId(QString(it->deviceID.c_str()));
+    source->setBasePath(QString(it->basePath.c_str()));
+    source->setDeviceType(it->deviceType);
+    source->setHasMediaFile(it->hasMediaFile);
+    switch(it->deviceType) {
+    case MediaLib::DeviceType::DEVICE_TYPE_USB:
+        source->setObjectImage("selectSourceItemUsb");
+        break;
+    case MediaLib::DeviceType::DEVICE_TYPE_MTP:
+        source->setObjectImage("selectSourceItemPhone");
+        break;
+    case MediaLib::DeviceType::DEVICE_TYPE_IPOD:
+        source->setObjectImage("selectSourceItemUsb");//selectSourceItemPhone
+        break;
+    case MediaLib::DeviceType::DEVICE_TYPE_IAP2:
+        source->setObjectImage("selectSourceItemUsb");//selectSourceItemPhone
+        break;
+    case MediaLib::DeviceType::DEVICE_TYPE_LOCALDRIVE:
+        source->setObjectImage("selectSourceItemPhone");
+        break;
+    default:
+        source->setObjectImage("selectSourceItemPhone");
+        break;
+    }
+    return source;
+}
+
+void SelectSourceInterface::getConnectedMediaDeviceListSync()
+{
+    MTLOG_I(TAG , " ==== \n");
+    std::list<MediaLib::mediaDevice> mediaDeviceList;
+    //       Request media service to get data detail connect
+    bool bRet = m_hmiMediaService->MediaSvc_GetConnectedMediaDeviceList_Sync(mediaDeviceList);
+    if (true != bRet) {
+        MTLOG_E(TAG, "request HmiMedia Get Device Connect return false\n");
+    }
+    else {
+        // Set name of list
+        std::list<MediaLib::mediaDevice>::iterator it = mediaDeviceList.begin();
+        for (; it != mediaDeviceList.end(); ++it) {
+            bool check = false;
+            SourceElementPtr source = this->convertSourceUSBFromMediaDevice(it);
+            for(int i = 0 ; i < m_fullList.size() ; i++){
+                if(m_fullList.at(i)->deviceId() == source->deviceId()){
+                    check = true;
+                    break;
+                }
+            }
+            if(check == false){
+                m_fullList.append(source);
+            }
+        }
+    }
+}
+
+void SelectSourceInterface::getOnlineMediaList()
+{
+    if(m_listOnline.size() > 0){
+        for(int i = 0 ; i < m_listOnline.size() ; i++){
+            bool check2 = false;
+            for(int j = 0 ; j < m_fullList.size() ; j++){
+                if(m_listOnline.at(i)->name() == m_fullList.at(j)->name()){
+                    check2 = true;
+                    break;
+                }
+            }
+            if(check2 == false){
+                m_fullList.append(m_listOnline.at(i));
+            }
+        }
+    }
+}
+
+void SelectSourceInterface::onResponseGetAvailableAudioSources(const S_RES_AUDIO_SOURCE_ID_LIST_T& availableSourceIds)
+{
+    m_fullList.clear();
+    m_fullList.append(SourceElementPtr(new SourceElement(E_RES_AUDIO_SOURCE_ID::E_RES_DEFAULT_AUDIO_SOURCE,
+                                                         "ADD", "selectSourceItemAdd")));
+    if(m_lastFullList.size() > 1 &&  m_fullList.size() > 0){
+        for(int i = 0 ; i < m_lastFullList.size() ; i++)
+        {
+            bool check = false;
+            for(int j = 0 ; j < m_fullList.size() ; j++){
+                if(m_lastFullList.at(i)->name() == m_fullList.at(j)->name()){
+                    check = true;
+                    break;
+                }
+            }
+            if(check == false){
+                m_fullList.append(m_lastFullList.at(i));
+            }
+        }
+    }
+    this->getAvailableRadioSources(availableSourceIds);
+    this->getAvailableAdditionalDevices(availableSourceIds);
+    this->getPairedBluetoothDevices();
+
+    for(int i = 0 ; i < m_fullList.count() ; i++){
+        if ((m_fullList[i]->deviceType() == static_cast<int>(MediaLib::DeviceType::DEVICE_TYPE_IAP2))||(m_fullList[i]->deviceType() == static_cast<int>(MediaLib::DeviceType::DEVICE_TYPE_IPOD))) {
+            m_mappingIndexUSBIphoneConnected.insert(m_fullList[i]->name(), i);
+            //            m_indexUSBIphoneConnected = i;
+            m_isAppleExist = true;
+            MTLOG_I(TAG , "m_mappingIndexUSBIphoneConnected: %d \n" ,i);
+            break;
+        }
+        else {
+            m_isAppleExist = false;
+        }
+    }
+    if (m_isAppleExist == true) {
+        QMap<QString, int>::iterator i;
+        for(i = m_mappingIndexUSBIphoneConnected.begin(); i != m_mappingIndexUSBIphoneConnected.end(); ++i){
+            QString temPoSourceName = m_fullList.at(i.value())->name();
+            int idxBluetooth = -1;
+            MTLOG_I(TAG, "temPoSourceName %s \n", temPoSourceName.toStdString().c_str());
+            for(int i = 0; i < m_fullList.count(); i++){
+                if ((m_fullList.at(i)->name() == temPoSourceName)
+                        && ((m_fullList.at(i)->sourceId() == E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP0)
+                            || (m_fullList.at(i)->sourceId() == E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP1))) {
+                    idxBluetooth = i;
+                    m_lastSourceName = m_fullList.at(i)->name();
+                    MTLOG_I(TAG, "index Bluetooh %d \n", idxBluetooth);
+                    break;
+                }
+            }
+            if((i.value() > idxBluetooth) && (idxBluetooth != -1)) {
+                m_fullList.replace(idxBluetooth, m_fullList.at(i.value()));
+                m_fullList.removeAt(i.value());
+                m_mappingIndexUSBIphoneConnected.insert(m_lastSourceName, idxBluetooth);
+                //                m_indexUSBIphoneConnected = idxBluetooth;
+            }
+            else {
+                if(idxBluetooth != -1){
+                    m_fullList.removeAt(idxBluetooth);
+                }
+            }
+            idxBluetooth = -1;
+        }
+    }
+    else if((m_isAppleExist == false) ) { //&& (m_lastSourceName != "") && (m_indexUSBIphoneConnected > -1)
+        int idxBluetooth = -1;
+        QMap<QString, int>::iterator i;
+        for(i = m_mappingIndexUSBIphoneConnected.begin(); i != m_mappingIndexUSBIphoneConnected.end(); ++i){
+            QString temPoSourceName = m_fullList.at(i.value())->name();
+            for(int i = 0; i < m_fullList.count(); i++) {
+                if((temPoSourceName == m_fullList.at(i)->name())
+                        && ((m_fullList.at(i)->sourceId() == E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP0)
+                            || (m_fullList.at(i)->sourceId() == E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP1))) {
+                    idxBluetooth = i;
+                    MTLOG_I(TAG, " isUsbExist index Bluetooh disconect %d \n", idxBluetooth);
+                    break;
+                }
+            }
+            if(idxBluetooth > -1 && (idxBluetooth < m_fullList.count())) {
+                m_fullList.swap(i.value(), idxBluetooth);
+            }
+        }
+        m_mappingIndexUSBIphoneConnected.clear();
+    }
+
+    m_offlineList = m_fullList;
+    m_lastFullList = m_fullList;
+    if(m_getMore.size() > 0){
+        m_fullList.append(m_getMore);
+    }
+    emit getResourceList(m_fullList, m_currentSource);   // Upload Gui
+}
+#endif
+
+void SelectSourceInterface::MediaSvc_onGetProviders(QString rcvDataStr)
+{
+    /// TODO: check return data changed or not
+    if (rcvDataStr != m_lastReceivedProvider) {
+        MTLOG_I(TAG, "=== online source changed ===\n");
+        m_lastReceivedProvider = rcvDataStr;
+        m_listOnline.clear();
+        m_listGetMore.clear();
+        m_getMore.clear();
+        QJsonObject jsonObject = JsonObject::objectFromString(rcvDataStr);
+        QJsonArray jsonArray = jsonObject["data"].toArray();
+        foreach (const QJsonValue & value, jsonArray) {
+            QJsonObject obj = value.toObject();
+            QString providerId = obj["providerId"].toString();
+            QString providerName = obj["providerName"].toString();
+            QString providerArtwork = obj["providerArtwork"].toString();
+            bool supportAnonymous = obj["supportAnonymous"].toBool();
+            bool supportFreemium = obj["supportFreemium"].toBool();
+            bool supportPremium = obj["supportPremium"].toBool();
+            bool isSelected = obj["isSelected"].toBool();
+            bool isAuthorized = obj["isAuthorized"].toBool();
+            int sourceId = m_mappingAudioSource.key(providerId);
+            SourceElementPtr onlineMediaSource = SourceElementPtr(new SourceElement(0));
+            onlineMediaSource->setSourceId(sourceId);
+            onlineMediaSource->setDeviceId(providerId.toUpper());
+            onlineMediaSource->setObjectImage("urlImage");
+            onlineMediaSource->setOnlineMediaInfo(providerId, providerName, providerArtwork, supportAnonymous,
+                                                  supportFreemium, supportPremium, isSelected, isAuthorized);
+            if (supportAnonymous || isAuthorized) {
+                if (true == isSelected) {
+                    m_listOnline.push_back(onlineMediaSource);
+                }
+                else {
+                    m_listGetMore.push_back(onlineMediaSource);
+                }
+            }
+            else {
+                m_listGetMore.push_back(onlineMediaSource);
+                MTLOG_E(TAG, "SORRY, DOES NOT SUPPORT: %s\n", providerId.toStdString().c_str());
+            }
+        }
+
+        if (m_listGetMore.count() > 0) {
+            SourceElementPtr getMoreSource = SourceElementPtr(new SourceElement(E_RES_DEFAULT_AUDIO_SOURCE,
+                                                                                "", ""));
+            getMoreSource->setGetMore(m_listGetMore.count());
+            m_getMore.push_back(getMoreSource);
+        }
+#ifdef APP_ON_DESKTOP
+        if(m_listOnline.count() > 0){
+            m_fullList = m_offlineList;
+            m_fullList.append(m_listOnline);
+            m_fullList.append(m_getMore);
+            emit getResourceList(m_fullList , m_currentSource);
+        }
+#endif
+    } else {
+        MTLOG_I(TAG, "=== online source not changed ===\n");
+    }
+}
+
+void SelectSourceInterface::requestGetMoreSource()
+{
+    MTLOG_I(TAG, "m_currentSource %s \n", m_currentSource.toStdString().c_str());
+    emit getSourceMore(m_listGetMore, m_currentSource);
+}
+
+void SelectSourceInterface::setLastSourceQML(QString lastSourceQML)
+{
+    if (m_lastSourceQML != lastSourceQML) {
+        m_lastSourceQML = lastSourceQML;
+    }
+}
+
+void SelectSourceInterface::setCurrentSourceQML(QString currentSourceQML)
+{
+    MTLOG_I(TAG, "Source %s \n", currentSourceQML.toStdString().c_str());
+    if (m_currentSource != currentSourceQML) {
+        m_currentSource = currentSourceQML;
+    }
+}
+
+void SelectSourceInterface::connectToDevice(QString deviceId)
+{
+    int connectedBTDevice = 0;
+    QList<int> listConnectedBT;
+    listConnectedBT.clear();
+    for(int i = 0; i < m_fullList.count(); i++) {
+        if((m_fullList[i]->objectImage() == "selectSourceItemBluetooth") && (m_fullList[i]->isReady())) {
+            connectedBTDevice += 1;
+            listConnectedBT.append(i);
+        }
+    }
+    if(connectedBTDevice < 2) {
+        this->requestUpdateReadyLoading(deviceId, false, true);
+        m_connectingSource = deviceId;
+#ifdef APP_ON_TARGET
+        m_bluetoothPairedService->setConnect(deviceId);
+#endif
+    } else {
+#ifdef APP_ON_TARGET
+        if(listConnectedBT.count() > 1){
+            m_popupService->requestShowSpecialPopup("Disconnect which device?", m_fullList[listConnectedBT[0]]->name().toStdString(), m_fullList[listConnectedBT[1]]->name().toStdString(), "");
+        }
+#endif
+    }
+}
+
+void SelectSourceInterface::MediaSvc_InformPlaybackSourceChangedFromBT2USB(const std::string& deviceID, const std::string& btAddress)
+{
+#ifdef APP_ON_TARGET
+    MTLOG_I(TAG, "Inform BT2USB: %s, %s\n", deviceID.c_str(), btAddress.c_str());
+    if (true == btAddress.empty()) {
+        std::list<MediaLib::mediaDevice> mediaDeviceList;
+        //       Request media service to get data detail connect
+        bool bRet = m_hmiMediaService->MediaSvc_GetConnectedMediaDeviceList_Sync(mediaDeviceList);
+        if (true != bRet) {
+            MTLOG_E(TAG, "request HmiMedia Get Device Connect return false\n");
+        } else {
+            // Find source coressponding with deviceID
+            SourceElementPtr source = SourceElementPtr(new SourceElement(0));
+            bool isFoundSource = false;
+            for (std::list<MediaLib::mediaDevice>::iterator it = mediaDeviceList.begin();
+                 it != mediaDeviceList.end(); ++it) {
+                if (0 == deviceID.compare(it->deviceID)) {
+                    isFoundSource = true;
+                    source = this->convertSourceUSBFromMediaDevice(it);
+                    break;
+                }
+            }
+            if (true == isFoundSource) {
+                emit requestToGoToApplication(source->sourceId(), source->name(),
+                                              source->deviceId(), source->basePath(),
+                                              source->deviceType(), source->providerId(),
+                                              source->urlImage(), source->supportAnonymous(),
+                                              source->supportFreemium(), source->supportPremium(),
+                                              source->isSelected(), source->isAuthorized(), source->hasMediaFile(),
+                                              source->macAddress(), m_lastSourceQML, true);
+            }
+        }
+    }
+#endif
+}
+
+void SelectSourceInterface::MediaSvc_SetCurrentProviderId(const std::string &ProviderId)
+{
+#ifdef APP_ON_TARGET
+#ifndef EXCLUDE_ONLINEMEDIA
+    m_hmiOnlineMediaService->MediaSvc_SetCurrentProviderId(ProviderId);
+#endif
+#endif
+}
+
+void SelectSourceInterface::requestUpdateReadyLoading(QString source, bool isReady, bool isLoading)
+{
+    emit updateSourceReadyLoading(source, isReady, isLoading);
+}
+
+void SelectSourceInterface::requestShowPopupReconnectFail()
+{
+#ifdef APP_ON_TARGET
+    m_popupService->requestShowFailReconnect();
+#endif
+}
+
+void SelectSourceInterface::requestDisconnectBTDevice(int index)
+{
+#ifdef APP_ON_TARGET
+    QList<QString> listConnectedBTId;
+    listConnectedBTId.clear();
+    for(int i = 0; i < m_fullList.count(); i++) {
+        if((m_fullList[i]->objectImage() == "selectSourceItemBluetooth") && (m_fullList[i]->isReady())) {
+            listConnectedBTId.append(m_fullList[i]->deviceId());
+        }
+    }
+    if(listConnectedBTId.count() >= index)
+        m_bluetoothPairedService->disconnectBluetooth(listConnectedBTId[index]);
+#endif
+}
+
+void SelectSourceInterface::refreshSourceWhenBTProfileChange()
+{
+#ifdef APP_ON_TARGET
+    MTLOG_I(TAG, "=== \n");
+    m_selectSourceService->requestResourceSvc_GetAvailableAudioSources(0);
+#endif
+}
+
+void SelectSourceInterface::refreshSourceWhenBTConnectedChanged()
+{
+#ifdef APP_ON_TARGET
+    MTLOG_I(TAG, "=== \n");
+    m_selectSourceService->requestResourceSvc_GetAvailableAudioSources(0);
+#endif
+}
+
+void SelectSourceInterface::refreshSourceWhenBtPowerChanged()
+{
+#ifdef APP_ON_TARGET
+    MTLOG_I(TAG, "=== \n");
+    m_lastFullList.clear();
+    m_selectSourceService->requestResourceSvc_GetAvailableAudioSources(0);
+#endif
+}
+
+void SelectSourceInterface::MediaSvc_onGetAudioSourceMapping(const QString &rcvData)
+{
+    QJsonObject jsonObject = JsonObject::objectFromString(rcvData);
+    QJsonArray jsonArray = jsonObject["providers"].toArray();
+    foreach (const QJsonValue & value, jsonArray) {
+        QJsonObject obj = value.toObject();
+        int audioSourceId = obj["audioSourceId"].toInt();
+        QString providerId = obj["providerId"].toString();
+        m_mappingAudioSource.insert(audioSourceId, providerId);
+    }
+}
+
+#ifdef APP_ON_TARGET
+void SelectSourceInterface::setIsConnectedMediaService(bool isConnectedMediaService)
+{
+    if(m_hmiMediaService != nullptr){
+        m_hmiMediaService->setIsConnectedMediaService(isConnectedMediaService);
+    }
+}
+
+void SelectSourceInterface::setIsConnectedBluetoothAvrcp(bool isConnectedBluetoothAvrcp)
+{
+    if(m_bluetoothAvrcpService != nullptr){
+        m_bluetoothAvrcpService->setIsConnectedBluetoothAvrcp(isConnectedBluetoothAvrcp);
+    }
+}
+
+void SelectSourceInterface::setIsConnectedBluetoothPaired(bool isConnectedBluetoothPaired)
+{
+    if(m_bluetoothPairedService != nullptr){
+        m_bluetoothPairedService->setIsConnectedBluetoothPaired(isConnectedBluetoothPaired);
+    }
+}
+
+void SelectSourceInterface::setIsConnectedSourceSevice(bool isConnectedSourceSevice)
+{
+    if(m_selectSourceService != nullptr){
+        m_selectSourceService->setIsConnectedSourceSevice(isConnectedSourceSevice);
+    }
+}
+void SelectSourceInterface::getConnectedBluetoothDevices()
+{
+    MTLOG_I(TAG, "Get all bluetooth devices\n");
+    S_BT_GAP_CONNECTED_DEVICE_LIST btConnectedDeviceList;
+    bool bRet = m_bluetoothAvrcpService->getConnectedDeviceListSync(btConnectedDeviceList);// tra ve list bt connected va nNum bang so luong bt ket noi
+    if(bRet != true) {
+        MTLOG_E(TAG, "request HmiMedia Get Device Connect return false\n");
+    }
+    else {
+        for (int i = 0; i < btConnectedDeviceList.nNum; ++i) {
+            bool check = false;
+            MTLOG_E(TAG, "Bluetooth connected devices: SelectSourceInterface::getBluetoothAudioDevices()  index[%d], supportAudio[%d] , name[%s], address[%s] , vendor[%d]", i, btConnectedDeviceList.nDevice[i].isSupportedAudio, btConnectedDeviceList.nDevice[i].name, btConnectedDeviceList.nDevice[i].address , btConnectedDeviceList.nDevice[i].VendorID);
+            if(btConnectedDeviceList.nDevice[i].isServiceAvailable[E_BT_GAP_SERVICE_TYPE_A2DP] == true || btConnectedDeviceList.nDevice[i].isServiceAvailable[E_BT_GAP_SERVICE_TYPE_AVRCP] == true) {
+                SourceElementPtr sourceBluetooth = SourceElementPtr(new SourceElement(0));
+                sourceBluetooth->setSourceId(E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP0); // A2Dp0 la thiet bi mot dc ket noi
+                string addr = "";
+                E_BT_SERVICE_ERROR_CODE result;
+                m_bluetoothA2dpService->getSourceIdAddressSync(E_RES_BT_A2DP0, addr, result);
+                if (0 == strcmp(addr.c_str(), btConnectedDeviceList.nDevice[i].address)) {
+                    sourceBluetooth->setSourceId(E_RES_BT_A2DP0);
+                } else {
+                    m_bluetoothA2dpService->getSourceIdAddressSync(E_RES_BT_A2DP1, addr, result); // A2Dp1 la thiet bi 2 dc ket noi
+                    if (0 == strcmp(addr.c_str(), btConnectedDeviceList.nDevice[i].address)) {
+                        sourceBluetooth->setSourceId(E_RES_BT_A2DP1);
+                    }
+                }
+                sourceBluetooth->setName(QString(btConnectedDeviceList.nDevice[i].name));
+                sourceBluetooth->setObjectImage("selectSourceItemBluetooth");
+                sourceBluetooth->setDeviceId(QString(btConnectedDeviceList.nDevice[i].address));
+                sourceBluetooth->setBasePath(QString(btConnectedDeviceList.nDevice[i].alias));
+                sourceBluetooth->setMacAddress(QString(btConnectedDeviceList.nDevice[i].address));
+                // duyet index
+                for(int j = 0 ; j < m_fullList.size() ; j++){
+                    if(btConnectedDeviceList.nDevice[i].address == m_fullList.at(j)->macAddress()
+                            &&((m_fullList.at(j)->sourceId() == E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP0)
+                               || (m_fullList.at(j)->sourceId() == E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP1))){
+                        m_fullList.replace(j, sourceBluetooth);
+                        check = true;
+                        break;
+                    }
+                }
+                if(check == false){
+                    m_fullList.append(sourceBluetooth);
+                }
+            }
+        }
+    }
+}
+
+void SelectSourceInterface::getPairedBluetoothDevices()
+{
+    S_BT_GAP_CONNECTED_DEVICE_LIST btConnectedDeviceList;
+    m_bluetoothAvrcpService->getConnectedDeviceListSync(btConnectedDeviceList);// tra ve list bt connected va nNum bang so luong bt ket noi
+    S_BT_GAP_DEVICE_INFO_LIST btPairedDeviceList;
+    bool bRet = m_bluetoothPairedService->getPairedDeviceListSync(btPairedDeviceList);
+    if(bRet != false) {
+        for (int i = 0; i < btPairedDeviceList.nNum; ++i) {
+            MTLOG_E(TAG, "Bluetooth paired devices: index[%d], name[%s], address[%s]", i, btPairedDeviceList.nDevice[i].name, btPairedDeviceList.nDevice[i].address);
+            SourceElementPtr sourceBluetooth = SourceElementPtr(new SourceElement(0));
+            sourceBluetooth->setSourceId(E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP0);
+            sourceBluetooth->setName(QString(btPairedDeviceList.nDevice[i].name));
+            sourceBluetooth->setObjectImage("selectSourceItemBluetooth");
+            sourceBluetooth->setDeviceId(QString(btPairedDeviceList.nDevice[i].address));
+            sourceBluetooth->setBasePath(QString(btPairedDeviceList.nDevice[i].alias));
+            sourceBluetooth->setMacAddress(QString(btPairedDeviceList.nDevice[i].address));
+            sourceBluetooth->setIsReady(false);
+            bool check = false;
+            bool check2 = false;
+            for (int j = 0; j < btConnectedDeviceList.nNum; ++j) {
+                if (QString(btPairedDeviceList.nDevice[i].address) == btConnectedDeviceList.nDevice[j].address){
+                    MTLOG_I(TAG, "btPairedDeviceList 's not support audio %s and %d \n", btConnectedDeviceList.nDevice[j].name , btConnectedDeviceList.nDevice[j].isSupportedAudio);
+                    check = true;
+                    break;
+                }
+            }
+            if(check == false) {
+                for(int k = 0 ; k < m_fullList.size(); k++){
+                    if((btPairedDeviceList.nDevice[i].address == m_fullList.at(k)->macAddress()) &&
+                            ((m_fullList.at(k)->sourceId() == E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP0)
+                             || (m_fullList.at(k)->sourceId() == E_RES_AUDIO_SOURCE_ID::E_RES_BT_A2DP1))){
+                        m_fullList.replace(k, sourceBluetooth);
+                        check2 = true;
+                        break;
+                    }
+                }
+                if(check2 == false){
+                    m_fullList.append(sourceBluetooth);
+                }
+            }
+        }
+    }
+    else {
+        MTLOG_I(TAG, "Can't get pairedList \n");
+    }
+}
+void SelectSourceInterface::requestSelectedSource(const MediaSourceControl::REQUEST_ID &requestId)
+{
+    if (m_hmiMediaSourceControlService != nullptr) {
+        m_hmiMediaSourceControlService->requestSelectedSource(requestId);
+    }
+}
+
+void SelectSourceInterface::MediaSvc_DeviceDisconnected(int audioSourceId)
+{
+    MTLOG_I(TAG, "Inform device audioSourceId  %d \n", audioSourceId);
+    if(m_lastFullList.size() > 0){
+        QList<SourceElementPtr>::iterator it = m_lastFullList.begin();
+        while (it != m_lastFullList.end()) {
+            SourceElementPtr tempSourceElement = *(it);
+            if ((tempSourceElement != nullptr) && (audioSourceId == tempSourceElement->sourceId())) {
+                it = m_lastFullList.erase(it);
+                if(m_currentSource == tempSourceElement->deviceId()){
+                    m_currentSource = "";
+                }
+                break;
+            }
+            else {
+                it = ++it;
+            }
+        }
+    }
+    MTLOG_I(TAG, "lastSource %s \n", m_currentSource.toStdString().c_str());
+}
+
+void SelectSourceInterface::onBrForegroundApplicationExtChanged(QString appBinaryName)
+{
+    MTLOG_I(TAG, "Inform device appBinaryName  %s \n", appBinaryName.toStdString().c_str());
+    if((0 == strcmp(appBinaryName.toLatin1().data(), HMI_APP_NAME_HOME))
+            || (0 == strcmp(appBinaryName.toLatin1().data(), HMI_APP_NAME_NOTIFICATION))
+            || (0 == strcmp(appBinaryName.toLatin1().data(), HMI_APP_NAME_SETTINGS))){
+        if (m_rootObject != nullptr) {
+            QMetaObject::invokeMethod(m_rootObject, "setPreAnimation",
+                                      Q_ARG(QVariant, true));
+        }
+    }
+    else if((0 == strcmp(appBinaryName.toLatin1().data(), HMI_APP_NAME_MEDIA))
+            || (0 == strcmp(appBinaryName.toLatin1().data(), HMI_APP_NAME_RADIO))
+            || (0 == strcmp(appBinaryName.toLatin1().data(), HMI_APP_NAME_SXM360L))
+            || (0 == strcmp(appBinaryName.toLatin1().data(), HMI_APP_NAME_ONLINE_MEDIA))){
+        if(0 != strcmp(m_strCurrAppBinaryName.toLatin1().data(), HMI_APP_NAME_SOURCESELECTOR)){
+            if (m_rootObject != nullptr) {
+                QMetaObject::invokeMethod(m_rootObject, "setHideAnimationScreen",
+                                          Q_ARG(QVariant, false),Q_ARG(QVariant, -720));
+            }
+        }
+    }
+    else {
+        if(m_rootObject != nullptr){
+            m_rootObject->setProperty("isPreAnimation" , QVariant(false));
+        }
+    }
+    m_strCurrAppBinaryName = appBinaryName;
+}
+
+void SelectSourceInterface::requestGetProviders()
+{
+#ifndef EXCLUDE_ONLINEMEDIA
+    CCF_ID id = CCF_ConnectInfoStatus;
+    int value = CcfProvider::getInstance()->getCCF(id);
+    MTLOG_I(TAG, "id: %d, value: %d", id, value);
+    if ((value == 0x02) || (value == 0x04)) {
+        this->getOnlineMediaSourceList();
+    }
+    else {
+        MTLOG_I(TAG, "NOT Get Provider");
+    }
+#endif
+}
+
+void SelectSourceInterface::onCmdShowApplication(int requestID, QString approle, QString strIntent)
+{
+    MTLOG_I(TAG, "on load gui from on cmd show application: %d ,  %s, %s\n", requestID,approle.toStdString().c_str(), strIntent.toStdString().c_str());
+    m_currentSource = strIntent;
+    this->requestGetAvailableAudioSources("", -1);
+    this->requestGetProviders();
+    MTLOG_I(TAG, "[END][SHOW APP] elapsed %7.3fms", SelectSourceAppMain::elapsedTime());
+}
+
+#endif
+void SelectSourceInterface::onSigToSetAnimation()
+{
+    MTLOG_I(TAG, "==== \n");
+    if (m_rootObject != nullptr) {
+        QMetaObject::invokeMethod(m_rootObject, "setAnimation",
+                                  Q_ARG(QVariant, true));
+    }
+}
+
+void SelectSourceInterface::onSigToPreAnimation()
+{
+    MTLOG_I(TAG, "==== \n");
+    if (m_rootObject != nullptr) {
+        QMetaObject::invokeMethod(m_rootObject, "setPreAnimation",
+                                  Q_ARG(QVariant, true));
+    }
+}
+void SelectSourceInterface::onSigToOpenAnimation(QString strAppRole)
+{
+    MTLOG_I(TAG, " =========== strAppRole : %s \n", strAppRole.toStdString().c_str());
+    if (m_rootObject != nullptr) {
+        QMetaObject::invokeMethod(m_rootObject, "openAnimation",
+                                  Q_ARG(QVariant, strAppRole));
+    }
+}
+
+void SelectSourceInterface::onSigToCloseAnimation(QString strTargetName)
+{
+    MTLOG_I(TAG, " =========== strTargetName : %s \n", strTargetName.toStdString().c_str());
+    if (m_rootObject != nullptr) {
+        QMetaObject::invokeMethod(m_rootObject, "closeAnimation",
+                                  Q_ARG(QVariant, strTargetName));
+    }
+}
